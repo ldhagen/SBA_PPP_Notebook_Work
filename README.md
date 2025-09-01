@@ -1,10 +1,10 @@
 # SBA PPP Loan Data Analysis Pipeline
 
-A comprehensive data processing and analysis pipeline for Small Business Administration (SBA) Paycheck Protection Program (PPP) loan data. This toolkit handles large-scale CSV processing, data harmonization, geographic filtering, and duplicate address analysis.
+A comprehensive data processing and analysis pipeline for Small Business Administration (SBA) Paycheck Protection Program (PPP) loan data. This toolkit handles large-scale CSV processing, data harmonization, geographic filtering, and interactive duplicate address analysis.
 
 ## Overview
 
-This project processes the complete SBA PPP FOIA dataset (10+ million records, 5GB+ data) using memory-efficient chunked processing techniques. It includes automated web scraping, data harmonization, geographic filtering, and specialized tools for identifying business complexes and shared office spaces.
+This project processes the complete SBA PPP FOIA dataset (10+ million records, 5GB+ data) using memory-efficient chunked processing techniques. It includes automated web scraping, data harmonization, geographic filtering, and specialized tools for identifying business complexes and shared office spaces with interactive examination capabilities.
 
 ## Dataset Information
 
@@ -46,6 +46,8 @@ for resource_url in resource_links:
 - **Version awareness**: Always downloads the most recent data snapshots
 - **Comprehensive coverage**: Discovers all available CSV resources, not just known files
 
+## Core Features
+
 ### 1. Automated Data Collection
 - **Web scraping with Beautiful Soup**: Parses SBA FOIA portal HTML to discover latest datasets
 - **Dynamic dataset detection**: Automatically finds new CSV releases without hardcoded URLs
@@ -59,11 +61,12 @@ for resource_url in resource_links:
 - **Geographic Filtering**: State/ZIP code based extraction
 - **Data Validation**: Encoding detection and error handling
 
-### 3. Address Analysis Tools
-- **Duplicate Address Detection**: Finds shared business locations
-- **Pattern Matching**: Flexible address variation discovery  
-- **Business Complex Analysis**: Identifies office buildings and incubators
-- **Financial Impact Assessment**: Aggregated loan statistics by location
+### 3. Interactive Address Analysis Tools
+- **City-Specific Duplicate Detection**: Finds shared business locations within the same city
+- **Interactive Address Explorer**: Scan, filter, and examine addresses with 30+ businesses
+- **Individual Address Deep Dive**: Extract and analyze all records for specific locations
+- **Business Complex Analysis**: Identifies office buildings, incubators, and shared workspaces
+- **Financial Impact Assessment**: Comprehensive loan statistics by location
 
 ## Installation & Setup
 
@@ -120,10 +123,49 @@ print(f"Total approved: ${df_tx['InitialApprovalAmount'].sum():,.2f}")
 print(f"Average loan: ${df_tx['InitialApprovalAmount'].mean():,.2f}")
 ```
 
-### Address Duplication Analysis
+### Interactive Address Analysis
 
 ```python
-# Find businesses sharing the same address
+# Interactive scanner with city-specific matching
+from address_analysis import interactive_address_explorer
+
+# Scan for addresses with 30+ businesses in the same city
+frequent_addresses, address_list = interactive_address_explorer(
+    "./sba_csv/combined_public_up_to_150k.csv", 
+    min_occurrences=30
+)
+
+# Results show address-city combinations to avoid false positives
+# Example output:
+# 1445 WOODMONT LN NW                     | ATLANTA         (236 businesses)
+# 9900 SPECTRUM DR                        | AUSTIN          (32 businesses)
+```
+
+### Interactive Address Examination
+
+```python
+# Deep dive into a specific business complex
+from address_analysis import examine_specific_address, analyze_address_details
+
+# Extract all records for a specific address-city combination
+address_data = examine_specific_address(
+    filepath, 
+    '1445 WOODMONT LN NW', 
+    'ATLANTA'
+)
+
+# Comprehensive analysis of the business complex
+analyze_address_details(address_data, '1445 WOODMONT LN NW', 'ATLANTA')
+
+# View individual loan records
+display_cols = ['BorrowerName', 'InitialApprovalAmount', 'DateApproved', 'ForgivenessAmount']
+print(address_data[display_cols].head(10))
+```
+
+### Legacy Address Analysis
+
+```python
+# Find businesses sharing the same address (original method)
 from address_analysis import find_duplicate_addresses_chunked
 
 # Scan for addresses with 15+ businesses
@@ -137,36 +179,57 @@ for address, count in sorted(duplicates.items(), key=lambda x: x[1], reverse=Tru
     print(f"{address}: {count} businesses")
 ```
 
-### Specific Address Deep Dive
-
-```python
-# Example: Analyze a business complex
-from address_analysis import find_all_woodmont_variations
-
-# Search for all variations of a specific address
-results = find_all_woodmont_variations("./sba_csv/combined_public_up_to_150k.csv")
-
-# Results include:
-# - All address variations (suite numbers, formatting differences)
-# - Business names and loan amounts
-# - Timeline analysis
-# - Financial impact summary
-```
-
 ## Key Findings & Examples
 
-### Large Business Complexes Identified
+### Interactive Address Analysis Results
+
+**Business Complex Discovery Process**:
+1. **Automatic Scanning**: Interactive scanner identifies 200+ address-city combinations with 30+ businesses
+2. **City-Specific Matching**: Prevents false positives by matching identical addresses only within the same city
+3. **Detailed Examination**: Extract complete loan records and business data for any address
+4. **Financial Analysis**: Comprehensive statistics including loan amounts, forgiveness rates, and timeline data
+
+**Major Business Complexes Identified**:
+
+**1445 Woodmont Ln NW, Atlanta** (Example from interactive analysis):
+- 541+ individual businesses identified
+- 260+ unique suite/unit variations (Suite #126 to #3801)
+- $10.5M+ total PPP funding approved
+- 77.4% forgiveness rate across all loans
+- Business incubator/shared workspace characteristics
 
 **9900 Spectrum Dr, Austin, TX**:
 - 32 businesses, $2.1M+ in PPP loans
 - Mix of LLCs, sole proprietorships, corporations
 - Technology and consulting focus
 
-**1445 Woodmont Ln NW** (Major Office Complex):
-- 600+ businesses identified
-- Suite numbers from #309 to #2859+  
-- Estimated $50M+ in total PPP funding
-- Appears to be large business incubator/shared office space
+### Interactive Analysis Features
+
+**City-Specific Detection**: The enhanced scanner prevents false positives by ensuring "Main St" in Chicago doesn't get combined with "Main St" in Phoenix, providing accurate business complex identification.
+
+**Deep Dive Capabilities**:
+- Individual loan record extraction for any address
+- Business diversity analysis (unique names vs. repeat borrowers)
+- Timeline analysis showing peak loan months
+- Forgiveness rate calculations by location
+- Financial impact summaries with min/max/average loan sizes
+
+**Sample Interactive Output**:
+```
+DETAILED ANALYSIS: 1445 WOODMONT LN NW, ATLANTA
+Total businesses/loans: 541
+
+Financial Impact:
+  Total PPP loans approved: $10,492,883.65
+  Average loan size: $19,395.35
+  Forgiveness rate: 77.4% (419/541 loans)
+
+Business Diversity:
+  Unique business names: 467
+  Top repeat borrowers:
+    KIBAYI SHISSO (3 loans)
+    ENIYA BROWN (2 loans)
+```
 
 ### Data Quality Insights
 
@@ -182,7 +245,8 @@ results = find_all_woodmont_variations("./sba_csv/combined_public_up_to_150k.csv
 sba-ppp-analysis/
 ├── README.md
 ├── CoPilotSuggestedLoadSBAPPPData.ipynb    # Main processing notebook
-├── address_analysis.py                      # Address scanning tools
+├── interactive_address_scanner.py            # Interactive address analysis tools
+├── address_analysis.py                      # Legacy address scanning tools
 ├── sba_csv/
 │   ├── public_150k_plus_240930.csv        # Large loans (968K records)
 │   ├── public_up_to_150k_[1-12].csv       # Small loan files
@@ -191,7 +255,8 @@ sba-ppp-analysis/
 │   └── chunks/                             # Processing intermediates
 ├── results/
 │   ├── texas_ppp_analysis.csv             # Filtered Texas data
-│   ├── duplicate_addresses_report.csv      # Address analysis results
+│   ├── frequent_addresses_30plus.csv       # Interactive address analysis results
+│   ├── duplicate_addresses_report.csv      # Legacy address analysis results
 │   └── business_complex_analysis.csv       # Shared location insights
 └── logs/
     └── sba_download.log                    # Processing logs
@@ -263,12 +328,14 @@ avg_forgiveness = df_tx['ForgivenessAmount'].mean()
 
 This toolkit is designed for researchers, analysts, and policy makers studying small business support programs. Key areas for contribution:
 
+- **Interactive Analysis Tools**: Enhanced GUI interfaces for address exploration and business complex visualization
 - **Web Scraping Enhancements**: Improved Beautiful Soup selectors for SBA website changes
-- **Address Standardization**: Enhanced fuzzy matching algorithms for business location analysis
-- **Industry Analysis**: NAICS code clustering and visualization tools
+- **Address Standardization**: Enhanced fuzzy matching algorithms for business location analysis with city-specific accuracy
+- **Industry Analysis**: NAICS code clustering and visualization tools with geographic overlays
 - **Geographic Tools**: County/MSA level aggregation beyond ZIP code filtering
 - **Performance Optimization**: Parallel processing implementations for faster chunked operations
 - **Dataset Validation**: Automated checks for data quality and completeness across scraping runs
+- **Business Intelligence**: Machine learning models for identifying business relationship patterns in shared locations
 
 ## License & Disclaimer
 
