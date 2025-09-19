@@ -5,7 +5,7 @@ ini_set('display_errors', 1);
 
 // Configuration
 $csv_file = './sba_csv/public_150k_plus_240930.csv';
-$results_per_page = 25;
+$results_per_page = isset($_GET['per_page']) ? max(10, min(100, intval($_GET['per_page']))) : 25;
 $max_memory = '512M';
 ini_set('memory_limit', $max_memory);
 set_time_limit(300);
@@ -44,9 +44,8 @@ $total_results = 0;
 $error_message = '';
 $processing_time = 0;
 
-// Get available columns and sample states
+// Get available columns
 $available_columns = [];
-$sample_states = [];
 
 try {
     $handle = fopen($csv_file, 'r');
@@ -54,30 +53,31 @@ try {
         $headers = fgetcsv($handle, 0, ',');
         if ($headers) {
             $available_columns = $headers;
-            
-            // Get sample states (first 200 rows only for speed)
-            $state_index = array_search('BorrowerState', $headers);
-            if ($state_index !== false) {
-                $states_found = [];
-                $sample_count = 0;
-                while (($row = fgetcsv($handle, 0, ',')) !== FALSE && $sample_count < 200) {
-                    if (isset($row[$state_index]) && $row[$state_index]) {
-                        $state = trim($row[$state_index]);
-                        if ($state && !isset($states_found[$state])) {
-                            $states_found[$state] = true;
-                            $sample_states[] = $state;
-                        }
-                    }
-                    $sample_count++;
-                }
-                sort($sample_states);
-            }
         }
         fclose($handle);
     }
 } catch (Exception $e) {
     $available_columns = ['BorrowerName', 'InitialApprovalAmount', 'BorrowerCity', 'BorrowerState', 'LoanStatus', 'DateApproved', 'ForgivenessAmount'];
 }
+
+// Predefined list of US states and territories
+$all_states = [
+    'AL' => 'Alabama', 'AK' => 'Alaska', 'AZ' => 'Arizona', 'AR' => 'Arkansas',
+    'CA' => 'California', 'CO' => 'Colorado', 'CT' => 'Connecticut', 'DE' => 'Delaware',
+    'FL' => 'Florida', 'GA' => 'Georgia', 'HI' => 'Hawaii', 'ID' => 'Idaho',
+    'IL' => 'Illinois', 'IN' => 'Indiana', 'IA' => 'Iowa', 'KS' => 'Kansas',
+    'KY' => 'Kentucky', 'LA' => 'Louisiana', 'ME' => 'Maine', 'MD' => 'Maryland',
+    'MA' => 'Massachusetts', 'MI' => 'Michigan', 'MN' => 'Minnesota', 'MS' => 'Mississippi',
+    'MO' => 'Missouri', 'MT' => 'Montana', 'NE' => 'Nebraska', 'NV' => 'Nevada',
+    'NH' => 'New Hampshire', 'NJ' => 'New Jersey', 'NM' => 'New Mexico', 'NY' => 'New York',
+    'NC' => 'North Carolina', 'ND' => 'North Dakota', 'OH' => 'Ohio', 'OK' => 'Oklahoma',
+    'OR' => 'Oregon', 'PA' => 'Pennsylvania', 'RI' => 'Rhode Island', 'SC' => 'South Carolina',
+    'SD' => 'South Dakota', 'TN' => 'Tennessee', 'TX' => 'Texas', 'UT' => 'Utah',
+    'VT' => 'Vermont', 'VA' => 'Virginia', 'WA' => 'Washington', 'WV' => 'West Virginia',
+    'WI' => 'Wisconsin', 'WY' => 'Wyoming', 'DC' => 'District of Columbia',
+    'PR' => 'Puerto Rico', 'VI' => 'Virgin Islands', 'GU' => 'Guam',
+    'AS' => 'American Samoa', 'MP' => 'Northern Mariana Islands'
+];
 
 // Determine if we should process search
 $should_search = $search_term || $min_amount > 0 || $max_amount > 0 || $state_filter || $show_top;
@@ -194,11 +194,15 @@ if ($should_search || (!$search_term && !$min_amount && !$max_amount && !$state_
         
         $total_results = count($temp_results);
         
-        // Sort results (default: highest loans first)
+        // Sort results (default: highest loans first, alphabetical for text fields)
         if ($total_results > 0) {
             $sort_key = $sort_column === 'InitialApprovalAmount' ? '_loan_amount_numeric' : $sort_column;
             
-            usort($temp_results, function($a, $b) use ($sort_key, $sort_order) {
+            // Set default sort order based on column type
+            $default_order = $sort_column === 'InitialApprovalAmount' ? 'desc' : 'asc';
+            $effective_sort_order = isset($_GET['order']) ? $sort_order : $default_order;
+            
+            usort($temp_results, function($a, $b) use ($sort_key, $effective_sort_order) {
                 $val_a = isset($a[$sort_key]) ? $a[$sort_key] : '';
                 $val_b = isset($b[$sort_key]) ? $b[$sort_key] : '';
                 
@@ -208,7 +212,7 @@ if ($should_search || (!$search_term && !$min_amount && !$max_amount && !$state_
                     $result = strcasecmp($val_a, $val_b);
                 }
                 
-                return $sort_order === 'asc' ? $result : -$result;
+                return $effective_sort_order === 'asc' ? $result : -$result;
             });
             
             // Paginate results
@@ -641,10 +645,10 @@ $showing_default = !$should_search && $total_results > 0;
                     <label for="state">State</label>
                     <select id="state" name="state">
                         <option value="">All States</option>
-                        <?php foreach (array_slice($sample_states, 0, 20) as $state): ?>
-                            <option value="<?php echo htmlspecialchars($state); ?>" 
-                                    <?php echo $state_filter === $state ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($state); ?>
+                        <?php foreach ($all_states as $code => $name): ?>
+                            <option value="<?php echo htmlspecialchars($code); ?>" 
+                                    <?php echo $state_filter === $code ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($code . ' - ' . $name); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
@@ -669,7 +673,18 @@ $showing_default = !$should_search && $total_results > 0;
                     <select id="sort" name="sort">
                         <option value="InitialApprovalAmount" <?php echo $sort_column === 'InitialApprovalAmount' ? 'selected' : ''; ?>>Loan Amount</option>
                         <option value="BorrowerName" <?php echo $sort_column === 'BorrowerName' ? 'selected' : ''; ?>>Company Name</option>
+                        <option value="BorrowerCity" <?php echo $sort_column === 'BorrowerCity' ? 'selected' : ''; ?>>City</option>
                         <option value="BorrowerState" <?php echo $sort_column === 'BorrowerState' ? 'selected' : ''; ?>>State</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="per_page">Results Per Page</label>
+                    <select id="per_page" name="per_page">
+                        <option value="10" <?php echo $results_per_page === 10 ? 'selected' : ''; ?>>10</option>
+                        <option value="25" <?php echo $results_per_page === 25 ? 'selected' : ''; ?>>25</option>
+                        <option value="50" <?php echo $results_per_page === 50 ? 'selected' : ''; ?>>50</option>
+                        <option value="100" <?php echo $results_per_page === 100 ? 'selected' : ''; ?>>100</option>
                     </select>
                 </div>
             </div>
@@ -715,7 +730,11 @@ $showing_default = !$should_search && $total_results > 0;
                                             Loan Amount
                                         </a>
                                     </th>
-                                    <th>City</th>
+                                    <th>
+                                        <a href="?<?php echo http_build_query(array_merge($_GET, ['sort' => 'BorrowerCity', 'order' => 'asc', 'page' => 1])); ?>">
+                                            City
+                                        </a>
+                                    </th>
                                     <th>
                                         <a href="?<?php echo http_build_query(array_merge($_GET, ['sort' => 'BorrowerState', 'order' => 'asc', 'page' => 1])); ?>">
                                             State
@@ -1002,4 +1021,4 @@ $showing_default = !$should_search && $total_results > 0;
     </script>
 </body>
 </html>
-                                
+                                                            
