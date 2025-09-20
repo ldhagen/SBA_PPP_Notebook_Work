@@ -20,6 +20,72 @@ function sanitizeInput($input) {
     return htmlspecialchars(trim($input ?? ''), ENT_QUOTES, 'UTF-8');
 }
 
+function formatDate($date) {
+    if (!$date || $date === '0000-00-00' || $date === '') return 'N/A';
+    return date('M j, Y', strtotime($date));
+}
+
+function formatPercentage($value) {
+    return $value ? $value . '%' : 'N/A';
+}
+
+// Define all field mappings for complete display
+$field_mappings = [
+    'LoanNumber' => 'Loan Number',
+    'DateApproved' => 'Date Approved',
+    'SBAOfficeCode' => 'SBA Office Code',
+    'ProcessingMethod' => 'Processing Method',
+    'BorrowerName' => 'Company Name',
+    'BorrowerAddress' => 'Address',
+    'BorrowerCity' => 'City',
+    'BorrowerState' => 'State',
+    'BorrowerZip' => 'ZIP Code',
+    'LoanStatusDate' => 'Loan Status Date',
+    'LoanStatus' => 'Loan Status',
+    'Term' => 'Term (months)',
+    'SBAGuarantyPercentage' => 'SBA Guaranty %',
+    'InitialApprovalAmount' => 'Initial Approval Amount',
+    'CurrentApprovalAmount' => 'Current Approval Amount',
+    'UndisbursedAmount' => 'Undisbursed Amount',
+    'FranchiseName' => 'Franchise Name',
+    'ServicingLenderLocationID' => 'Servicing Lender Location ID',
+    'ServicingLenderName' => 'Servicing Lender Name',
+    'ServicingLenderAddress' => 'Servicing Lender Address',
+    'ServicingLenderCity' => 'Servicing Lender City',
+    'ServicingLenderState' => 'Servicing Lender State',
+    'ServicingLenderZip' => 'Servicing Lender ZIP',
+    'RuralUrbanIndicator' => 'Rural/Urban Indicator',
+    'HubzoneIndicator' => 'HubZone Indicator',
+    'LMIIndicator' => 'LMI Indicator',
+    'BusinessAgeDescription' => 'Business Age',
+    'ProjectCity' => 'Project City',
+    'ProjectCountyName' => 'Project County',
+    'ProjectState' => 'Project State',
+    'ProjectZip' => 'Project ZIP',
+    'CD' => 'Congressional District',
+    'JobsReported' => 'Jobs Reported',
+    'NAICSCode' => 'NAICS Code',
+    'Race' => 'Race',
+    'Ethnicity' => 'Ethnicity',
+    'UTILITIES_PROCEED' => 'Utilities Proceeds',
+    'PAYROLL_PROCEED' => 'Payroll Proceeds',
+    'MORTGAGE_INTEREST_PROCEED' => 'Mortgage Interest Proceeds',
+    'RENT_PROCEED' => 'Rent Proceeds',
+    'REFINANCE_EIDL_PROCEED' => 'Refinance EIDL Proceeds',
+    'HEALTH_CARE_PROCEED' => 'Health Care Proceeds',
+    'DEBT_INTEREST_PROCEED' => 'Debt Interest Proceeds',
+    'BusinessType' => 'Business Type',
+    'OriginatingLenderLocationID' => 'Originating Lender Location ID',
+    'OriginatingLender' => 'Originating Lender',
+    'OriginatingLenderCity' => 'Originating Lender City',
+    'OriginatingLenderState' => 'Originating Lender State',
+    'Gender' => 'Gender',
+    'Veteran' => 'Veteran Status',
+    'NonProfit' => 'Non-Profit Status',
+    'ForgivenessAmount' => 'Forgiveness Amount',
+    'ForgivenessDate' => 'Forgiveness Date'
+];
+
 $search_term = isset($_GET['search']) ? sanitizeInput($_GET['search']) : '';
 $sort_column = isset($_GET['sort']) ? sanitizeInput($_GET['sort']) : 'InitialApprovalAmount';
 $sort_order = isset($_GET['order']) && $_GET['order'] === 'asc' ? 'asc' : 'desc';
@@ -132,7 +198,7 @@ $showing_default = !$should_search && $total_results > 0;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PPP Loan Search - MySQL Edition</title>
+    <title>PPP Loan Search - Complete Data View</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', sans-serif; background: #f5f7fa; color: #333; }
@@ -209,7 +275,7 @@ $showing_default = !$should_search && $total_results > 0;
             position: relative;
         }
         .click-hint::after {
-            content: "👁️ Click for details";
+            content: "👁️ Click for complete details";
             position: absolute;
             right: 10px;
             top: 50%;
@@ -223,7 +289,7 @@ $showing_default = !$should_search && $total_results > 0;
             opacity: 1;
         }
 
-        /* Modal styles */
+        /* Enhanced Modal styles */
         .modal {
             display: none;
             position: fixed;
@@ -236,12 +302,12 @@ $showing_default = !$should_search && $total_results > 0;
         }
         .modal-content {
             background-color: #fefefe;
-            margin: 2% auto;
+            margin: 1% auto;
             padding: 0;
             border-radius: 10px;
-            width: 90%;
-            max-width: 800px;
-            max-height: 90vh;
+            width: 95%;
+            max-width: 1200px;
+            max-height: 95vh;
             overflow-y: auto;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
@@ -250,16 +316,24 @@ $showing_default = !$should_search && $total_results > 0;
             color: white;
             padding: 20px;
             border-radius: 10px 10px 0 0;
-            position: relative;
+            position: sticky;
+            top: 0;
+            z-index: 1001;
         }
         .modal-header h2 {
             margin: 0;
             font-size: 1.5em;
             word-wrap: break-word;
+            padding-right: 50px;
         }
         .modal-header .loan-amount {
             font-size: 1.8em;
             font-weight: bold;
+            margin-top: 5px;
+        }
+        .modal-header .loan-number {
+            font-size: 0.9em;
+            opacity: 0.9;
             margin-top: 5px;
         }
         .close {
@@ -285,10 +359,38 @@ $showing_default = !$should_search && $total_results > 0;
         .modal-body {
             padding: 30px;
         }
+        .modal-tabs {
+            display: flex;
+            border-bottom: 2px solid #e1e5e9;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+        .modal-tab {
+            padding: 12px 20px;
+            background: #f8f9fa;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            transition: all 0.3s;
+        }
+        .modal-tab.active {
+            background: #667eea;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
         .detail-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
         }
         .detail-section {
             background: #f8f9fa;
@@ -302,6 +404,9 @@ $showing_default = !$should_search && $total_results > 0;
             font-size: 1.1em;
             border-bottom: 2px solid #e1e5e9;
             padding-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         .detail-row {
             display: flex;
@@ -315,7 +420,8 @@ $showing_default = !$should_search && $total_results > 0;
         .detail-label {
             font-weight: 600;
             color: #555;
-            flex: 0 0 40%;
+            flex: 0 0 45%;
+            word-wrap: break-word;
         }
         .detail-value {
             flex: 1;
@@ -325,6 +431,55 @@ $showing_default = !$should_search && $total_results > 0;
         .detail-value.currency {
             color: #28a745;
             font-weight: 600;
+        }
+        .detail-value.large-currency {
+            color: #28a745;
+            font-weight: 700;
+            font-size: 1.1em;
+        }
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid #e1e5e9;
+        }
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+            font-size: 0.9em;
+        }
+        .export-section {
+            background: #e8f5e8;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .export-button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 5px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 5px;
+            transition: background 0.3s;
+        }
+        .export-button:hover {
+            background: #218838;
         }
         
         .error { 
@@ -353,8 +508,8 @@ $showing_default = !$should_search && $total_results > 0;
             .results-header { flex-direction: column; gap: 10px; }
             th, td { padding: 8px 4px; font-size: 12px; }
             .modal-content {
-                width: 95%;
-                margin: 5% auto;
+                width: 98%;
+                margin: 1% auto;
             }
             .detail-grid {
                 grid-template-columns: 1fr;
@@ -366,6 +521,12 @@ $showing_default = !$should_search && $total_results > 0;
             .detail-value {
                 text-align: left;
             }
+            .modal-tabs {
+                flex-direction: column;
+            }
+            .modal-tab {
+                margin-right: 0;
+            }
         }
     </style>
 </head>
@@ -373,8 +534,8 @@ $showing_default = !$should_search && $total_results > 0;
     <div class="container">
         <div class="header">
             <h1>PPP Loan Search Interface</h1>
-            <p>Lightning-fast search across 968,524 PPP loan records - Click any row for details</p>
-            <div class="performance-badge">MySQL Database - Sub-Second Search</div>
+            <p>Complete data access across 968,524 PPP loan records - Click any row for full details</p>
+            <div class="performance-badge">MySQL Database - Complete Field Coverage</div>
         </div>
 
         <?php if ($showing_default): ?>
@@ -483,67 +644,360 @@ $showing_default = !$should_search && $total_results > 0;
                                         <td><?php echo htmlspecialchars($row['BusinessType'] ?? 'N/A'); ?></td>
                                     </tr>
 
-                                    <!-- Modal for each row -->
+                                    <!-- Enhanced Modal for each row with complete data -->
                                     <div id="modal<?php echo $index; ?>" class="modal">
                                         <div class="modal-content">
                                             <div class="modal-header">
                                                 <h2><?php echo htmlspecialchars($row['BorrowerName'] ?? 'Unknown Company'); ?></h2>
                                                 <div class="loan-amount"><?php echo formatCurrency($row['InitialApprovalAmount'] ?? 0); ?></div>
+                                                <div class="loan-number">Loan #: <?php echo htmlspecialchars($row['LoanNumber'] ?? 'N/A'); ?></div>
                                                 <span class="close" onclick="closeModal(<?php echo $index; ?>)">&times;</span>
                                             </div>
                                             <div class="modal-body">
-                                                <div class="detail-grid">
-                                                    <div class="detail-section">
-                                                        <h3>🏢 Company Information</h3>
-                                                        <div class="detail-row">
-                                                            <span class="detail-label">Company Name:</span>
-                                                            <span class="detail-value"><?php echo htmlspecialchars($row['BorrowerName'] ?? '-'); ?></span>
-                                                        </div>
-                                                        <div class="detail-row">
-                                                            <span class="detail-label">City:</span>
-                                                            <span class="detail-value"><?php echo htmlspecialchars($row['BorrowerCity'] ?? '-'); ?></span>
-                                                        </div>
-                                                        <div class="detail-row">
-                                                            <span class="detail-label">State:</span>
-                                                            <span class="detail-value"><?php echo htmlspecialchars($row['BorrowerState'] ?? '-'); ?></span>
-                                                        </div>
-                                                        <div class="detail-row">
-                                                            <span class="detail-label">ZIP Code:</span>
-                                                            <span class="detail-value"><?php echo htmlspecialchars($row['BorrowerZip'] ?? '-'); ?></span>
-                                                        </div>
-                                                        <div class="detail-row">
-                                                            <span class="detail-label">Business Type:</span>
-                                                            <span class="detail-value"><?php echo htmlspecialchars($row['BusinessType'] ?? '-'); ?></span>
-                                                        </div>
-                                                        <div class="detail-row">
-                                                            <span class="detail-label">Jobs Reported:</span>
-                                                            <span class="detail-value"><?php echo number_format($row['JobsReported'] ?? 0); ?></span>
-                                                        </div>
-                                                    </div>
+                                                <!-- Export Section -->
+                                                <div class="export-section">
+                                                    <h4>📊 Export This Record</h4>
+                                                    <button class="export-button" onclick="exportToCSV(<?php echo $index; ?>)">Export to CSV</button>
+                                                    <button class="export-button" onclick="exportToJSON(<?php echo $index; ?>)">Export to JSON</button>
+                                                    <button class="export-button" onclick="copyToClipboard(<?php echo $index; ?>)">Copy All Data</button>
+                                                </div>
 
-                                                    <div class="detail-section">
-                                                        <h3>💰 Loan Details</h3>
-                                                        <div class="detail-row">
-                                                            <span class="detail-label">Initial Amount:</span>
-                                                            <span class="detail-value currency"><?php echo formatCurrency($row['InitialApprovalAmount'] ?? 0); ?></span>
+                                                <!-- Summary Stats -->
+                                                <div class="summary-stats">
+                                                    <div class="stat-card">
+                                                        <div class="stat-value"><?php echo formatCurrency($row['InitialApprovalAmount'] ?? 0); ?></div>
+                                                        <div class="stat-label">Initial Amount</div>
+                                                    </div>
+                                                    <div class="stat-card">
+                                                        <div class="stat-value"><?php echo formatCurrency($row['ForgivenessAmount'] ?? 0); ?></div>
+                                                        <div class="stat-label">Forgiven Amount</div>
+                                                    </div>
+                                                    <div class="stat-card">
+                                                        <div class="stat-value"><?php echo number_format($row['JobsReported'] ?? 0); ?></div>
+                                                        <div class="stat-label">Jobs Reported</div>
+                                                    </div>
+                                                    <div class="stat-card">
+                                                        <div class="stat-value"><?php echo htmlspecialchars($row['LoanStatus'] ?? 'Unknown'); ?></div>
+                                                        <div class="stat-label">Loan Status</div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Tabbed Content -->
+                                                <div class="modal-tabs">
+                                                    <button class="modal-tab active" onclick="switchTab(<?php echo $index; ?>, 'company')">🏢 Company Info</button>
+                                                    <button class="modal-tab" onclick="switchTab(<?php echo $index; ?>, 'loan')">💰 Loan Details</button>
+                                                    <button class="modal-tab" onclick="switchTab(<?php echo $index; ?>, 'proceeds')">📊 Use of Proceeds</button>
+                                                    <button class="modal-tab" onclick="switchTab(<?php echo $index; ?>, 'lender')">🏦 Lender Info</button>
+                                                    <button class="modal-tab" onclick="switchTab(<?php echo $index; ?>, 'demographics')">👥 Demographics</button>
+                                                    <button class="modal-tab" onclick="switchTab(<?php echo $index; ?>, 'all')">📋 All Fields</button>
+                                                </div>
+
+                                                <!-- Company Information Tab -->
+                                                <div id="company-<?php echo $index; ?>" class="tab-content active">
+                                                    <div class="detail-grid">
+                                                        <div class="detail-section">
+                                                            <h3>🏢 Basic Information</h3>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Company Name:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['BorrowerName'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Business Type:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['BusinessType'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Business Age:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['BusinessAgeDescription'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">NAICS Code:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['NAICSCode'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Jobs Reported:</span>
+                                                                <span class="detail-value"><?php echo number_format($row['JobsReported'] ?? 0); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Franchise Name:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['FranchiseName'] ?? '-'); ?></span>
+                                                            </div>
                                                         </div>
-                                                        <div class="detail-row">
-                                                            <span class="detail-label">Current Amount:</span>
-                                                            <span class="detail-value currency"><?php echo formatCurrency($row['CurrentApprovalAmount'] ?? 0); ?></span>
-                                                        </div>
-                                                        <div class="detail-row">
-                                                            <span class="detail-label">Forgiveness Amount:</span>
-                                                            <span class="detail-value currency"><?php echo formatCurrency($row['ForgivenessAmount'] ?? 0); ?></span>
-                                                        </div>
-                                                        <div class="detail-row">
-                                                            <span class="detail-label">Loan Status:</span>
-                                                            <span class="detail-value"><?php echo htmlspecialchars($row['LoanStatus'] ?? '-'); ?></span>
-                                                        </div>
-                                                        <div class="detail-row">
-                                                            <span class="detail-label">Originating Lender:</span>
-                                                            <span class="detail-value"><?php echo htmlspecialchars($row['OriginatingLender'] ?? '-'); ?></span>
+
+                                                        <div class="detail-section">
+                                                            <h3>📍 Location Details</h3>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Address:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['BorrowerAddress'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">City:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['BorrowerCity'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">State:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['BorrowerState'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">ZIP Code:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['BorrowerZip'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Congressional District:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['CD'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Rural/Urban:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['RuralUrbanIndicator'] ?? '-'); ?></span>
+                                                            </div>
                                                         </div>
                                                     </div>
+                                                </div>
+
+                                                <!-- Loan Details Tab -->
+                                                <div id="loan-<?php echo $index; ?>" class="tab-content">
+                                                    <div class="detail-grid">
+                                                        <div class="detail-section">
+                                                            <h3>💰 Loan Information</h3>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Loan Number:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['LoanNumber'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Date Approved:</span>
+                                                                <span class="detail-value"><?php echo formatDate($row['DateApproved'] ?? ''); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Initial Amount:</span>
+                                                                <span class="detail-value large-currency"><?php echo formatCurrency($row['InitialApprovalAmount'] ?? 0); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Current Amount:</span>
+                                                                <span class="detail-value currency"><?php echo formatCurrency($row['CurrentApprovalAmount'] ?? 0); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Undisbursed Amount:</span>
+                                                                <span class="detail-value currency"><?php echo formatCurrency($row['UndisbursedAmount'] ?? 0); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Term (months):</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['Term'] ?? '-'); ?></span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="detail-section">
+                                                            <h3>📊 Status & Forgiveness</h3>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Loan Status:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['LoanStatus'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Loan Status Date:</span>
+                                                                <span class="detail-value"><?php echo formatDate($row['LoanStatusDate'] ?? ''); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Forgiveness Amount:</span>
+                                                                <span class="detail-value large-currency"><?php echo formatCurrency($row['ForgivenessAmount'] ?? 0); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Forgiveness Date:</span>
+                                                                <span class="detail-value"><?php echo formatDate($row['ForgivenessDate'] ?? ''); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">SBA Guaranty %:</span>
+                                                                <span class="detail-value"><?php echo formatPercentage($row['SBAGuarantyPercentage'] ?? ''); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Processing Method:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['ProcessingMethod'] ?? '-'); ?></span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Use of Proceeds Tab -->
+                                                <div id="proceeds-<?php echo $index; ?>" class="tab-content">
+                                                    <div class="detail-grid">
+                                                        <div class="detail-section">
+                                                            <h3>📊 Approved Uses of Proceeds</h3>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Payroll:</span>
+                                                                <span class="detail-value currency"><?php echo formatCurrency($row['PAYROLL_PROCEED'] ?? 0); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Utilities:</span>
+                                                                <span class="detail-value currency"><?php echo formatCurrency($row['UTILITIES_PROCEED'] ?? 0); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Rent:</span>
+                                                                <span class="detail-value currency"><?php echo formatCurrency($row['RENT_PROCEED'] ?? 0); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Mortgage Interest:</span>
+                                                                <span class="detail-value currency"><?php echo formatCurrency($row['MORTGAGE_INTEREST_PROCEED'] ?? 0); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Health Care:</span>
+                                                                <span class="detail-value currency"><?php echo formatCurrency($row['HEALTH_CARE_PROCEED'] ?? 0); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Debt Interest:</span>
+                                                                <span class="detail-value currency"><?php echo formatCurrency($row['DEBT_INTEREST_PROCEED'] ?? 0); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Refinance EIDL:</span>
+                                                                <span class="detail-value currency"><?php echo formatCurrency($row['REFINANCE_EIDL_PROCEED'] ?? 0); ?></span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="detail-section">
+                                                            <h3>🏗️ Project Information</h3>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Project City:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['ProjectCity'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Project County:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['ProjectCountyName'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Project State:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['ProjectState'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Project ZIP:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['ProjectZip'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">HubZone Indicator:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['HubzoneIndicator'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">LMI Indicator:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['LMIIndicator'] ?? '-'); ?></span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Lender Information Tab -->
+                                                <div id="lender-<?php echo $index; ?>" class="tab-content">
+                                                    <div class="detail-grid">
+                                                        <div class="detail-section">
+                                                            <h3>🏦 Originating Lender</h3>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Lender Name:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['OriginatingLender'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Lender City:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['OriginatingLenderCity'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Lender State:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['OriginatingLenderState'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Lender Location ID:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['OriginatingLenderLocationID'] ?? '-'); ?></span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="detail-section">
+                                                            <h3>🏦 Servicing Lender</h3>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Servicing Lender:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['ServicingLenderName'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Servicing Address:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['ServicingLenderAddress'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Servicing City:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['ServicingLenderCity'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Servicing State:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['ServicingLenderState'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Servicing ZIP:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['ServicingLenderZip'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Servicing Location ID:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['ServicingLenderLocationID'] ?? '-'); ?></span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="detail-section">
+                                                            <h3>🏛️ SBA Information</h3>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">SBA Office Code:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['SBAOfficeCode'] ?? '-'); ?></span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Demographics Tab -->
+                                                <div id="demographics-<?php echo $index; ?>" class="tab-content">
+                                                    <div class="detail-grid">
+                                                        <div class="detail-section">
+                                                            <h3>👥 Demographics & Classifications</h3>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Race:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['Race'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Ethnicity:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['Ethnicity'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Gender:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['Gender'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Veteran Status:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['Veteran'] ?? '-'); ?></span>
+                                                            </div>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label">Non-Profit Status:</span>
+                                                                <span class="detail-value"><?php echo htmlspecialchars($row['NonProfit'] ?? '-'); ?></span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- All Fields Tab -->
+                                                <div id="all-<?php echo $index; ?>" class="tab-content">
+                                                    <div class="detail-section">
+                                                        <h3>📋 Complete Record (All <?php echo count($field_mappings); ?> Fields)</h3>
+                                                        <?php foreach ($field_mappings as $field => $label): ?>
+                                                            <div class="detail-row">
+                                                                <span class="detail-label"><?php echo htmlspecialchars($label); ?>:</span>
+                                                                <span class="detail-value <?php echo (strpos($field, 'Amount') !== false || strpos($field, 'PROCEED') !== false) ? 'currency' : ''; ?>">
+                                                                    <?php 
+                                                                    $value = $row[$field] ?? '';
+                                                                    if (strpos($field, 'Amount') !== false || strpos($field, 'PROCEED') !== false) {
+                                                                        echo formatCurrency($value);
+                                                                    } elseif (strpos($field, 'Date') !== false) {
+                                                                        echo formatDate($value);
+                                                                    } elseif ($field === 'SBAGuarantyPercentage') {
+                                                                        echo formatPercentage($value);
+                                                                    } else {
+                                                                        echo htmlspecialchars($value ?: '-');
+                                                                    }
+                                                                    ?>
+                                                                </span>
+                                                            </div>
+                                                        <?php endforeach; ?>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Hidden data for export -->
+                                                <div id="export-data-<?php echo $index; ?>" style="display: none;">
+                                                    <?php echo htmlspecialchars(json_encode($row)); ?>
                                                 </div>
                                             </div>
                                         </div>
@@ -609,6 +1063,85 @@ $showing_default = !$should_search && $total_results > 0;
             }
         }
 
+        function switchTab(index, tabName) {
+            // Hide all tab contents
+            const allTabs = document.querySelectorAll(`#modal${index} .tab-content`);
+            allTabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Remove active class from all tab buttons
+            const allButtons = document.querySelectorAll(`#modal${index} .modal-tab`);
+            allButtons.forEach(button => button.classList.remove('active'));
+            
+            // Show selected tab content
+            const selectedTab = document.getElementById(`${tabName}-${index}`);
+            if (selectedTab) {
+                selectedTab.classList.add('active');
+            }
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+        }
+
+        function exportToCSV(index) {
+            const data = JSON.parse(document.getElementById('export-data-' + index).textContent);
+            
+            // Create CSV content
+            const headers = Object.keys(data);
+            const values = Object.values(data);
+            
+            let csvContent = headers.join(',') + '\n';
+            csvContent += values.map(value => `"${value || ''}"`).join(',');
+            
+            // Download file
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ppp_loan_${data.LoanNumber || 'record'}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        function exportToJSON(index) {
+            const data = JSON.parse(document.getElementById('export-data-' + index).textContent);
+            
+            const jsonContent = JSON.stringify(data, null, 2);
+            
+            const blob = new Blob([jsonContent], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ppp_loan_${data.LoanNumber || 'record'}.json`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        function copyToClipboard(index) {
+            const data = JSON.parse(document.getElementById('export-data-' + index).textContent);
+            
+            let textContent = `PPP Loan Record - ${data.BorrowerName || 'Unknown'}\n`;
+            textContent += '='.repeat(50) + '\n\n';
+            
+            for (const [key, value] of Object.entries(data)) {
+                const label = key.replace(/([A-Z])/g, ' $1').trim();
+                textContent += `${label}: ${value || 'N/A'}\n`;
+            }
+            
+            navigator.clipboard.writeText(textContent).then(function() {
+                alert('Record data copied to clipboard!');
+            }).catch(function(err) {
+                console.error('Could not copy text: ', err);
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = textContent;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('Record data copied to clipboard!');
+            });
+        }
+
         // Close modal when clicking outside
         window.onclick = function(event) {
             if (event.target.classList.contains('modal')) {
@@ -627,6 +1160,24 @@ $showing_default = !$should_search && $total_results > 0;
                         document.body.style.overflow = 'auto';
                     }
                 });
+            }
+        });
+
+        // Add keyboard navigation for tabs
+        document.addEventListener('keydown', function(event) {
+            if (event.key >= '1' && event.key <= '6') {
+                const openModal = document.querySelector('.modal[style*="block"]');
+                if (openModal) {
+                    const modalId = openModal.id.replace('modal', '');
+                    const tabs = ['company', 'loan', 'proceeds', 'lender', 'demographics', 'all'];
+                    const tabIndex = parseInt(event.key) - 1;
+                    if (tabIndex < tabs.length) {
+                        const tabButton = openModal.querySelector(`.modal-tab:nth-child(${event.key})`);
+                        if (tabButton) {
+                            tabButton.click();
+                        }
+                    }
+                }
             }
         });
     </script>
